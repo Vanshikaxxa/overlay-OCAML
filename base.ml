@@ -29,229 +29,163 @@ let calculate_fps () =
     last_time := now
   )
 
-(* Font rendering *)
+(* Font rendering - optimized to cache character patterns *)
+let char_patterns = Hashtbl.create 36
+
+let get_char_pattern c =
+  match Hashtbl.find_opt char_patterns c with
+  | Some pattern -> pattern
+  | None ->
+      let pattern = match c with
+      | 'F' -> [
+          (0, 0); (1, 0); (2, 0); (3, 0);
+          (0, 1);
+          (0, 2); (1, 2); (2, 2);
+          (0, 3);
+          (0, 4)
+        ]
+      | 'P' -> [
+          (0, 0); (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (0, 2); (1, 2); (2, 2);
+          (0, 3);
+          (0, 4)
+        ]
+      | 'S' -> [
+          (1, 0); (2, 0); (3, 0);
+          (0, 1);
+          (1, 2); (2, 2);
+          (3, 3);
+          (0, 4); (1, 4); (2, 4)
+        ]
+      | 'R' -> [
+          (0, 0); (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (0, 2); (1, 2); (2, 2);
+          (0, 3); (2, 3);
+          (0, 4); (3, 4)
+        ]
+      | 'E' -> [
+          (0, 0); (1, 0); (2, 0); (3, 0);
+          (0, 1);
+          (0, 2); (1, 2); (2, 2);
+          (0, 3);
+          (0, 4); (1, 4); (2, 4); (3, 4)
+        ]
+      | 'D' -> [
+          (0, 0); (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (0, 2); (3, 2);
+          (0, 3); (3, 3);
+          (0, 4); (1, 4); (2, 4)
+        ]
+      | 'O' -> [
+          (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (0, 2); (3, 2);
+          (0, 3); (3, 3);
+          (1, 4); (2, 4)
+        ]
+      | 'T' -> [
+          (0, 0); (1, 0); (2, 0); (3, 0);
+          (1, 1); (2, 1);
+          (1, 2); (2, 2);
+          (1, 3); (2, 3);
+          (1, 4); (2, 4)
+        ]
+      | ':' -> [
+          (1, 1); (2, 1);
+          (1, 2); (2, 2);
+          (1, 3); (2, 3)
+        ]
+      | 'x' -> [
+          (0, 0); (3, 0);
+          (1, 1); (2, 1);
+          (1, 2); (2, 2);
+          (1, 3); (2, 3);
+          (0, 4); (3, 4)
+        ]
+      | ' ' -> []
+      | '0' -> [
+          (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (0, 2); (3, 2);
+          (0, 3); (3, 3);
+          (1, 4); (2, 4)
+        ]
+      | '1' -> [
+          (1, 0);
+          (0, 1); (1, 1);
+          (1, 2);
+          (1, 3);
+          (0, 4); (1, 4); (2, 4)
+        ]
+      | '2' -> [
+          (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (2, 2); (3, 2);
+          (1, 3);
+          (0, 4); (1, 4); (2, 4); (3, 4)
+        ]
+      | '3' -> [
+          (0, 0); (1, 0); (2, 0);
+          (3, 1);
+          (1, 2); (2, 2);
+          (3, 3);
+          (0, 4); (1, 4); (2, 4)
+        ]
+      | '4' -> [
+          (0, 0); (3, 0);
+          (0, 1); (3, 1);
+          (0, 2); (1, 2); (2, 2); (3, 2);
+          (3, 3);
+          (3, 4)
+        ]
+      | '5' -> [
+          (0, 0); (1, 0); (2, 0); (3, 0);
+          (0, 1);
+          (0, 2); (1, 2); (2, 2);
+          (3, 3);
+          (0, 4); (1, 4); (2, 4)
+        ]
+      | '6' -> [
+          (1, 0); (2, 0);
+          (0, 1);
+          (0, 2); (1, 2); (2, 2);
+          (0, 3); (3, 3);
+          (1, 4); (2, 4)
+        ]
+      | '7' -> [
+          (0, 0); (1, 0); (2, 0); (3, 0);
+          (3, 1);
+          (2, 2);
+          (1, 3);
+          (1, 4)
+        ]
+      | '8' -> [
+          (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (1, 2); (2, 2);
+          (0, 3); (3, 3);
+          (1, 4); (2, 4)
+        ]
+      | '9' -> [
+          (1, 0); (2, 0);
+          (0, 1); (3, 1);
+          (1, 2); (2, 2); (3, 2);
+          (3, 3);
+          (1, 4); (2, 4)
+        ]
+      | _ -> []
+      in
+      Hashtbl.add char_patterns c pattern;
+      pattern
+
 let draw_char x y c brightness create_pixel acc =
-  match c with
-  | 'F' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y); (x+3, y);
-      (x, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x, y+3);
-      (x, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-       create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'P' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x, y+3);
-      (x, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'S' ->
-     let pixels = [
-      (x+1, y); (x+2, y); (x+3, y);
-      (x, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x+3, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'R' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x, y+3); (x+2, y+3);
-      (x, y+4); (x+3, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'E' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y); (x+3, y);
-      (x, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4); (x+3, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'D' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+3, y+2);
-      (x, y+3); (x+3, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'O' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+3, y+2);
-      (x, y+3); (x+3, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'T' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y); (x+3, y);
-      (x+1, y+1); (x+2, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x+1, y+3); (x+2, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | ':' ->
-     let pixels = [
-      (x+1, y+1); (x+2, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x+1, y+3); (x+2, y+3)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | 'x' ->
-     let pixels = [
-      (x, y); (x+3, y);
-      (x+1, y+1); (x+2, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x+1, y+3); (x+2, y+3);
-      (x, y+4); (x+3, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | ' ' -> acc 
-  | '0' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+3, y+2);
-      (x, y+3); (x+3, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '1' ->
-     let pixels = [
-      (x+1, y);
-      (x, y+1); (x+1, y+1);
-      (x+1, y+2);
-      (x+1, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '2' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x+2, y+2); (x+3, y+2);
-      (x+1, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4); (x+3, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '3' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y);
-      (x+3, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x+3, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '4' ->
-     let pixels = [
-      (x, y); (x+3, y);
-      (x, y+1); (x+3, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2); (x+3, y+2);
-      (x+3, y+3);
-      (x+3, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '5' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y); (x+3, y);
-      (x, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x+3, y+3);
-      (x, y+4); (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '6' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1);
-      (x, y+2); (x+1, y+2); (x+2, y+2);
-      (x, y+3); (x+3, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '7' ->
-     let pixels = [
-      (x, y); (x+1, y); (x+2, y); (x+3, y);
-      (x+3, y+1);
-      (x+2, y+2);
-      (x+1, y+3);
-      (x+1, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '8' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x+1, y+2); (x+2, y+2);
-      (x, y+3); (x+3, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | '9' ->
-     let pixels = [
-      (x+1, y); (x+2, y);
-      (x, y+1); (x+3, y+1);
-      (x+1, y+2); (x+2, y+2); (x+3, y+2);
-      (x+3, y+3);
-      (x+1, y+4); (x+2, y+4)
-    ] in
-    List.fold_left (fun acc (px, py) ->
-      create_pixel (px*2) (py*2) brightness acc
-    ) acc pixels
-  | _ -> acc 
+  let pixels = get_char_pattern c in
+  List.fold_left (fun acc (px, py) ->
+    create_pixel ((x+px)*2) ((y+py)*2) brightness acc
+  ) acc pixels
 
 let draw_string x y text brightness create_pixel acc =
   let chars = List.of_seq (String.to_seq text) in
@@ -264,21 +198,35 @@ let draw_string x y text brightness create_pixel acc =
   in
   aux x y chars acc
 
-(* Render stats function *)
-let render_stats create_pixel entity_count width height =
+let cached_fps_text = ref ""
+let cached_fps_value = ref (-1)
+let cached_res_text = ref ""
+let cached_width = ref (-1)
+let cached_height = ref (-1)
+
+let render_stats create_pixel width height =
   calculate_fps ();
 
-  let fps_text = Printf.sprintf "FPS: %d" !fps_counter in
-  let entity_text = Printf.sprintf "DOTS: %d" entity_count in
-  let res_text = Printf.sprintf "RES: %dx%d" width height in
+  if !fps_counter != !cached_fps_value then (
+    cached_fps_text := Printf.sprintf "FPS: %d" !fps_counter;
+    cached_fps_value := !fps_counter
+  );
+  
+  if !cached_width != width || !cached_height != height then (
+    cached_res_text := Printf.sprintf "RES: %dx%d" width height;
+    cached_width := width;
+    cached_height := height
+  );
+
+  (* let entity_text = Printf.sprintf "DOTS: %d" entity_count in *)
 
   let base_x = 2 in
   let base_y = 2 in
   let brightness = 15 in
 
-  let fps_primitives = draw_string (base_x*2) (base_y*2) fps_text brightness create_pixel [] in
-  let entity_primitives = draw_string (base_x*2) ((base_y + 14)*2) entity_text brightness create_pixel fps_primitives in
-  draw_string (base_x*2) ((base_y + 28)*2) res_text brightness create_pixel entity_primitives
+  let fps_primitives = draw_string (base_x*2) (base_y*2) !cached_fps_text brightness create_pixel [] in
+  (* let entity_primitives = draw_string (base_x*2) ((base_y + 14)*2) entity_text brightness create_pixel fps_primitives in *)
+  draw_string (base_x*2) ((base_y + 14)*2) !cached_res_text brightness create_pixel fps_primitives
 
 type input_state = {
   keys: KeyCodeSet.t;
@@ -321,12 +269,14 @@ let render_texture (r : Sdl.renderer) (texture : Sdl.texture) (s : Screen.t) (bi
   Sdl.render_copy ~dst:dst r texture >|= fun () ->
   Sdl.render_present r
 
-
-(* Create a pixel function for overlay *)
 let create_overlay_pixel x y brightness acc =
-  (* Try using a tuple directly *)
   (Primitives.Pixel({ x = x; y = y }, brightness)) :: acc
 (* ----- *)
+
+let cached_stats_primitives = ref []
+let last_stats_update = ref 0.0
+
+let last_f_key_state = ref false
 
 let run (title : string) (boot : boot_func option) (tick : tick_func) (s : Screen.t) =
   let make_full = Array.to_list Sys.argv |> List.exists (fun a -> (String.compare a "-f") == 0) in
@@ -348,8 +298,7 @@ let run (title : string) (boot : boot_func option) (tick : tick_func) (s : Scree
     match Sdl.create_texture r Sdl.Pixel.format_rgb888 ~w:width ~h:height Sdl.Texture.access_streaming with
     | Error (`Msg e) -> Sdl.log "texture error: %s" e; exit 1
     | Ok texture ->
-      (* This is a conversion layer, but allocaing bigarrays frequently is frowned upon
-        so we allocate it once here and re-use it. *)
+
       let bitmap = (Bigarray.Array1.create Bigarray.int32 Bigarray.c_layout (width * height)) in
 
       let initial_buffer = match boot with
@@ -365,29 +314,26 @@ let run (title : string) (boot : boot_func option) (tick : tick_func) (s : Scree
         let diff = Int32.(sub (of_int (1000 / 60)) (sub now last_t)) in
         if Int32.(compare diff zero) > 0 then Sdl.delay diff;
 
-        (* Calculate FPS for stats *)
-        calculate_fps ();
 
-        (* Check if F key was pressed to toggle stats *)
-        if KeyCodeSet.mem stats_toggle_key input.keys && 
-           not (KeyCodeSet.mem stats_toggle_key 
-             (match Sdl.poll_event (Some e) with
-              | true -> (
-                match Sdl.Event.(enum (get e typ)) with
-                | `Key_down -> KeyCodeSet.empty 
-                | _ -> input.keys)
-              | false -> input.keys)) then
+        let current_f_pressed = KeyCodeSet.mem stats_toggle_key input.keys in
+        let toggle_stats = current_f_pressed && not !last_f_key_state in
+        last_f_key_state := current_f_pressed;
+        
+        if toggle_stats then
           show_stats := not !show_stats;
 
         let updated_buffer = tick t s prev_buffer input in
         let input = { input with mouse = Mouse.clear_events input.mouse } in
 
-        (* Apply overlay if enabled *)
         let final_buffer = 
           if !show_stats then
-            let entity_count = 0 in (* You may need to adjust this based on your application *)
-            let stats_primitives = render_stats create_overlay_pixel entity_count width height in
-            Framebuffer.render updated_buffer stats_primitives;
+            let now = Unix.gettimeofday () in
+            if now -. !last_stats_update > 0.5 then (
+              cached_stats_primitives := render_stats create_overlay_pixel width height;
+              last_stats_update := now
+            );
+            
+            Framebuffer.render updated_buffer !cached_stats_primitives;
             Framebuffer.set_dirty updated_buffer;
             updated_buffer
           else
@@ -438,17 +384,21 @@ let run_functional (title : string) (tick_f : functional_tick_func) (s : Screen.
   let wrap_tick (t : int) (screen : Screen.t) (prev_framebuffer : Framebuffer.t) (input : input_state) : Framebuffer.t =
     let primitives : Primitives.t list = tick_f t screen input.keys in
     
-    (* Check if F key was pressed to toggle stats *)
-    if KeyCodeSet.mem stats_toggle_key input.keys && 
-       not (KeyCodeSet.mem stats_toggle_key input.keys) then
+    let current_f_pressed = KeyCodeSet.mem stats_toggle_key input.keys in
+    if current_f_pressed && not !last_f_key_state then
       show_stats := not !show_stats;
+    last_f_key_state := current_f_pressed;
+    
+    let width, height = Screen.dimensions screen in
     
     let all_primitives = 
       if !show_stats then
-        let width, height = Screen.dimensions screen in
-        let entity_count = List.length primitives in
-        let stats_primitives = render_stats create_overlay_pixel entity_count width height in
-        stats_primitives @ primitives
+        let now = Unix.gettimeofday () in
+        if now -. !last_stats_update > 0.5 then (
+          cached_stats_primitives := render_stats create_overlay_pixel width height;
+          last_stats_update := now
+        );
+        !cached_stats_primitives @ primitives
       else
         primitives
     in
@@ -456,7 +406,6 @@ let run_functional (title : string) (tick_f : functional_tick_func) (s : Screen.
     if all_primitives = [] then
       prev_framebuffer
     else
-      let width, height = Screen.dimensions screen in
       let new_framebuffer = Framebuffer.init (width, height) (fun _x _y -> 0) in
       Framebuffer.render new_framebuffer all_primitives;
       new_framebuffer
