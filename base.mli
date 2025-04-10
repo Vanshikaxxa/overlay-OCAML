@@ -22,10 +22,9 @@ val show_stats : bool ref
 val calculate_fps : unit -> unit
 (** Calculate and update the FPS counter *)
 
-val render_stats : 
+val render_stats :
   (int -> int -> int -> 'a list -> 'a list) ->  (* create_pixel function *)
-  int ->                                       (* entity_count *)
-  int ->                                       (* width *) 
+  int ->                                       (* width *)
   int ->                                       (* height *)
   'a list                                      (* returns a list of primitives *)
 (** Render stats with a create_pixel function that builds primitives *)
@@ -50,5 +49,5 @@ val run: string -> boot_func option -> tick_func -> Screen.t -> unit
 (** [run title boot tick screen] Creates the runloop *)
 
 val run_functional : string -> functional_tick_func -> Screen.t -> unit
-(** [run_functional title tick_f screen] runs Claudius in a functional style. 
-- [tick_f] screen returns a list of primitives rather than a complete framebuffer.*)
+(** [run_functional title tick_f screen] runs Claudius in a functional style.
+  - [tick_f] screen returns a list of primitives rather than a complete framebuffer.*)
